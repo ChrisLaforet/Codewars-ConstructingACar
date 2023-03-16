@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodewarsConstructingACar", "CodewarsConstructingACar.csproj", "{530A3B59-F587-411C-B928-9065CA08D603}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{530A3B59-F587-411C-B928-9065CA08D603}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{530A3B59-F587-411C-B928-9065CA08D603}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{530A3B59-F587-411C-B928-9065CA08D603}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{530A3B59-F587-411C-B928-9065CA08D603}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
