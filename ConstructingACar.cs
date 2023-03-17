@@ -35,8 +35,15 @@ public class Car : ICar
 	{
 		if (EngineIsRunning)
 		{
-			drivingProcessor.ReduceSpeed(speed);
-			ConsumeGas();
+			if (drivingInformationDisplay.ActualSpeed > 0)
+			{
+				drivingProcessor.ReduceSpeed(speed);
+				ConsumeGas();						
+			}
+			else
+			{
+				RunningIdle();
+			}
 		}
 	}
 
@@ -44,8 +51,15 @@ public class Car : ICar
 	{
 		if (EngineIsRunning)
 		{
-			drivingProcessor.IncreaseSpeedTo(speed);
-			ConsumeGas();
+			if (drivingInformationDisplay.ActualSpeed > speed) 
+			{
+				FreeWheel();
+			}
+			else
+			{
+				drivingProcessor.IncreaseSpeedTo(speed);
+				ConsumeGas();				
+			}
 		}
 	}
 
@@ -64,7 +78,10 @@ public class Car : ICar
 	
 	public void FreeWheel()
 	{
-		BrakeBy(1);
+		if (drivingInformationDisplay.ActualSpeed == 0)
+			RunningIdle();
+		else
+			BrakeBy(1);
 	}
 
 	public void Refuel(double liters) => this.fuelTank.Refuel(liters);
@@ -82,6 +99,7 @@ public class Car : ICar
 		}
 	}
 }
+
 class FuelConsumptionRate
 {
 	public const double IdleConsumptionRate = 0.0003D;
@@ -157,7 +175,7 @@ public class FuelTank : IFuelTank
 		{
 			return;
 		}
-		FillLevel = FillLevel - liters;
+		FillLevel -= liters;
 		if (FillLevel < 0)
 		{
 			FillLevel = 0;
@@ -198,7 +216,8 @@ public class FuelTankDisplay : IFuelTankDisplay
 public class DrivingInformationDisplay : IDrivingInformationDisplay // car #2
 {
 	private IDrivingProcessor drivingProcessor;
-	public DrivingInformationDisplay(IDrivingProcessor drivingProcessor) => this.drivingProcessor = drivingProcessor;
+	
+	internal DrivingInformationDisplay(IDrivingProcessor drivingProcessor) => this.drivingProcessor = drivingProcessor;
 
 	public int ActualSpeed => drivingProcessor.ActualSpeed;
 }
@@ -211,10 +230,10 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 	
 	private const int MaxBraking = 10;		// km/h/sec
 
-	private int maxAcceleration;
+	private readonly int maxAcceleration;
 	private double currentSpeed;
 
-	public DrivingProcessor(int maxAcceleration)
+	internal DrivingProcessor(int maxAcceleration)
 	{
 		this.maxAcceleration = maxAcceleration switch
 		{
@@ -248,11 +267,8 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 	
 	private static double CalculateFinalVelocityFor(double initialVelocityKmPerHour, double accelerationKmPerHourPerSecond, int seconds)
 	{
-		//double acceleration = accelerationKmPerHourPerSecond / 3600D;
 		double acceleration = accelerationKmPerHourPerSecond;
-		//double finalVelocity =  (initialVelocityKmPerHour / 3600D) + acceleration * seconds;
 		double finalVelocity =  initialVelocityKmPerHour + acceleration * seconds;
-		//return (finalVelocity * 3600D) / 1000D;
 		return finalVelocity;
 	}
 }
