@@ -38,7 +38,6 @@ public class Car : ICar
 			if (drivingInformationDisplay.ActualSpeed > 0)
 			{
 				drivingProcessor.ReduceSpeed(speed);
-				ConsumeGas();						
 			}
 			else
 			{
@@ -79,9 +78,13 @@ public class Car : ICar
 	public void FreeWheel()
 	{
 		if (drivingInformationDisplay.ActualSpeed == 0)
+		{
 			RunningIdle();
+		}
 		else
+		{
 			BrakeBy(1);
+		}
 	}
 
 	public void Refuel(double liters) => this.fuelTank.Refuel(liters);
@@ -143,20 +146,14 @@ public class FuelTank : IFuelTank
 	public const double DefaultFuelLevel = 20.0D;
 	public const double ReserveFuelLevel = 5.0D;
 
-	internal FuelTank(double fuelLevel) 
+	internal FuelTank(double fuelLevel)
 	{
-		if (fuelLevel <= 0)
+		this.FillLevel = fuelLevel switch
 		{
-			this.FillLevel = 0;
-		}
-		else if (fuelLevel > MaximumFuelLevel)
-		{
-			this.FillLevel = MaximumFuelLevel;
-		}
-		else
-		{
-			this.FillLevel = fuelLevel;
-		}
+			<= 0 => 0,
+			> MaximumFuelLevel => MaximumFuelLevel,
+			_ => fuelLevel
+		};
 	}
 
 	public double FillLevel
@@ -171,14 +168,13 @@ public class FuelTank : IFuelTank
 
 	public void Consume(double liters)
 	{
-		if (FillLevel <= 0)
+		if (FillLevel > 0)
 		{
-			return;
-		}
-		FillLevel -= liters;
-		if (FillLevel < 0)
-		{
-			FillLevel = 0;
+			FillLevel -= liters;
+			if (FillLevel < 0)
+			{
+				FillLevel = 0;
+			}
 		}
 	}
 
@@ -248,19 +244,23 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 	public void IncreaseSpeedTo(int speed)
 	{
 		if (speed > MaxSpeed)
+		{
 			speed = MaxSpeed;
-		if (currentSpeed >= MaxSpeed)
-			return;
-
-		double finalSpeed = CalculateFinalVelocityFor(currentSpeed, maxAcceleration, 1);
-		currentSpeed = finalSpeed <= speed ? finalSpeed : speed;
+		}
+		if (currentSpeed < MaxSpeed)
+		{
+			double finalSpeed = CalculateFinalVelocityFor(currentSpeed, maxAcceleration, 1);
+			currentSpeed = finalSpeed <= speed ? finalSpeed : speed;
+		}
 	}
 
 	public void ReduceSpeed(int speed)
 	{
 		if (speed > MaxBraking)
+		{
 			speed = MaxBraking;
-		
+		}
+
 		double finalSpeed = CalculateFinalVelocityFor(currentSpeed, -1D * speed, 1);
 		currentSpeed = finalSpeed >= 0 ? finalSpeed : 0D;
 	}
