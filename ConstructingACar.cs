@@ -34,11 +34,13 @@ public class Car : ICar
 	public void BrakeBy(int speed)
 	{
 		drivingProcessor.ReduceSpeed(speed);
+		engine.Consume(FuelConsumptionRate.ConsumptionRateBySpeed(drivingInformationDisplay.ActualSpeed));
 	}
 
 	public void Accelerate(int speed)
 	{
 		drivingProcessor.IncreaseSpeedTo(speed);
+		engine.Consume(FuelConsumptionRate.ConsumptionRateBySpeed(drivingInformationDisplay.ActualSpeed));
 	}
 
 	public void EngineStart() => this.engine.Start();
