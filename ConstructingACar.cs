@@ -6,23 +6,29 @@ public class Car : ICar
 {
 	private const int DefaultMaxAcceleration = 10;		// km/h/sec
 
-	public IFuelTankDisplay fuelTankDisplay;
+	public readonly IFuelTankDisplay fuelTankDisplay;
 
-	private IEngine engine;
+	private readonly IEngine engine;
 
-	private IFuelTank fuelTank;
+	private readonly IFuelTank fuelTank;
 	
-	public IDrivingInformationDisplay drivingInformationDisplay; // car #2  
+	public readonly IDrivingInformationDisplay drivingInformationDisplay; // car #2  
 
-	private IDrivingProcessor drivingProcessor; // car #2
+	private readonly IDrivingProcessor drivingProcessor; // car #2
+	
+	public readonly IOnBoardComputerDisplay onBoardComputerDisplay; // car #3
+
+	private readonly IOnBoardComputer onBoardComputer; // car #3
 
 	public Car(double fuelLevel, int maxAcceleration) // car #2
 	{
 		fuelTank = new FuelTank(fuelLevel);
 		engine = new Engine(fuelTank);
 		fuelTankDisplay = new FuelTankDisplay(fuelTank);
-		drivingProcessor = new DrivingProcessor(maxAcceleration);
+		drivingProcessor = new DrivingProcessor(maxAcceleration, onBoardComputer);
+		onBoardComputer = new OnBoardComputer(drivingProcessor, fuelTank);
 		drivingInformationDisplay = new DrivingInformationDisplay(drivingProcessor);
+		onBoardComputerDisplay = new OnBoardComputerDisplay(onBoardComputer);
 	}
 
 	public Car() : this(FuelTank.DefaultFuelLevel) { }
@@ -71,10 +77,18 @@ public class Car : ICar
 		}
 	}
 
-	public void EngineStart() => this.engine.Start();
+	public void EngineStart()
+	{
+		this.engine.Start();
+		this.drivingProcessor.EngineStart();
+	}
 
-	public void EngineStop() => this.engine.Stop();
-	
+	public void EngineStop()
+	{
+		this.engine.Stop();
+		this.drivingProcessor.EngineStop();
+	}
+
 	public void FreeWheel()
 	{
 		if (drivingInformationDisplay.ActualSpeed == 0)
@@ -239,7 +253,17 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 		};
 	}
 
+	public double ActualConsumption { get; }
 	public int ActualSpeed => Convert.ToInt32(currentSpeed);
+	public void EngineStart()
+	{
+		onBoardComputer.TripReset();
+	}
+
+	public void EngineStop()
+	{
+		throw new NotImplementedException();
+	}
 
 	public void IncreaseSpeedTo(int speed)
 	{
@@ -270,5 +294,141 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 		double acceleration = accelerationKmPerHourPerSecond;
 		double finalVelocity =  initialVelocityKmPerHour + acceleration * seconds;
 		return finalVelocity;
+	}
+}
+
+public class OnBoardComputer : IOnBoardComputer // car #3
+{
+	private const double SecondsPerHour = 3600D;
+	private const double MetersPerKilometer = 1000D;
+
+	private readonly IFuelTank fuelTank;
+	private readonly IDrivingProcessor drivingProcessor;
+
+	private Tally total = new Tally();
+	private Tally trip = new Tally();
+
+	internal OnBoardComputer(IDrivingProcessor drivingProcessor, IFuelTank fuelTank)
+	{
+		this.drivingProcessor = drivingProcessor;
+		this.fuelTank = fuelTank;
+	}
+
+	public int TripRealTime => trip.Seconds;
+	public int TripDrivingTime => trip.DrivingSeconds;
+	public int TripDrivenDistance => trip.Distance;		// meters
+	public int TotalRealTime => total.Seconds;
+	public int TotalDrivingTime => total.DrivingSeconds;
+	public int TotalDrivenDistance => total.Distance;
+	public double TripAverageSpeed { get; }
+	public double TotalAverageSpeed { get; }
+	public int ActualSpeed { get; }
+	public double ActualConsumptionByTime { get; }
+	public double ActualConsumptionByDistance { get; }
+	public double TripAverageConsumptionByTime { get; }
+	public double TotalAverageConsumptionByTime { get; }
+	public double TripAverageConsumptionByDistance { get; }
+	public double TotalAverageConsumptionByDistance { get; }
+	public int EstimatedRange { get; }
+	
+	public void ElapseSecond()
+	{
+		trip.AddSeconds(1);
+		total.AddSeconds(1);
+
+		if (drivingProcessor.ActualSpeed > 0)
+		{
+			double distance = CalculateDistanceFromSpeedAndSeconds(drivingProcessor.ActualSpeed, 1);
+			trip.AddDrivingSeconds(1);
+			trip.AddDistance((int)Math.Round(distance * MetersPerKilometer));
+			total.AddDrivingSeconds(1);
+			total.AddDistance((int)Math.Round(distance * MetersPerKilometer));
+		}
+	}
+
+	private static double CalculateDistanceFromSpeedAndSeconds(double speedInKmPerHour, int seconds)
+	{
+		return (speedInKmPerHour / SecondsPerHour) * seconds;  // km/h -> km/sec * sec
+	}
+
+	public void TripReset()
+	{
+		trip = new Tally();
+	}
+
+	public void TotalReset()
+	{
+		total = new Tally();
+	}
+}
+
+class Tally
+{
+	public int Seconds
+	{
+		get;
+		private set;
+	}
+
+	public void AddSeconds(int seconds)
+	{
+		Seconds += seconds;
+	}
+	
+	public int DrivingSeconds
+	{
+		get;
+		private set;
+	}
+
+	public void AddDrivingSeconds(int seconds)
+	{
+		DrivingSeconds += seconds;
+	}
+
+	public int Distance
+	{
+		get;
+		private set;
+	}
+
+	public void AddDistance(int distance)
+	{
+		Distance += distance;
+	}
+}
+
+public class OnBoardComputerDisplay : IOnBoardComputerDisplay // car #3
+{
+	private const double MetersPerKilometer = 1000D;
+	
+	private IOnBoardComputer onBoardComputer;
+	
+	internal OnBoardComputerDisplay(IOnBoardComputer onBoardComputer) => this.onBoardComputer = onBoardComputer;
+
+	public int TripRealTime => onBoardComputer.TripRealTime;
+	public int TripDrivingTime => onBoardComputer.TripDrivingTime;
+	public double TripDrivenDistance => Math.Round(onBoardComputer.TripDrivenDistance / MetersPerKilometer, 2);
+	public int TotalRealTime => onBoardComputer.TotalRealTime;
+	public int TotalDrivingTime => onBoardComputer.TotalDrivingTime;
+	public double TotalDrivenDistance => Math.Round(onBoardComputer.TotalDrivenDistance / MetersPerKilometer, 2);
+	public int ActualSpeed { get; }
+	public double TripAverageSpeed { get; }
+	public double TotalAverageSpeed { get; }
+	public double ActualConsumptionByTime { get; }
+	public double ActualConsumptionByDistance { get; }
+	public double TripAverageConsumptionByTime { get; }
+	public double TotalAverageConsumptionByTime { get; }
+	public double TripAverageConsumptionByDistance { get; }
+	public double TotalAverageConsumptionByDistance { get; }
+	public int EstimatedRange { get; }
+	public void TripReset()
+	{
+		onBoardComputer.TripReset();
+	}
+
+	public void TotalReset()
+	{
+		onBoardComputer.TotalReset();
 	}
 }
