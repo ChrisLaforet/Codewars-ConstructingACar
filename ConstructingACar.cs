@@ -321,9 +321,9 @@ public class OnBoardComputer : IOnBoardComputer // car #3
 	public int TotalRealTime => total.Seconds;
 	public int TotalDrivingTime => total.DrivingSeconds;
 	public int TotalDrivenDistance => total.Distance;
-	public double TripAverageSpeed { get; }
-	public double TotalAverageSpeed { get; }
-	public int ActualSpeed { get; }
+	public double TripAverageSpeed  => trip.TotalSpeedReadings != 0 ? Math.Round((double)trip.SumOfSpeedReadings / trip.TotalSpeedReadings, 1) : 0;
+	public double TotalAverageSpeed => total.TotalSpeedReadings != 0 ? Math.Round((double)total.SumOfSpeedReadings / total.TotalSpeedReadings, 1) : 0;
+	public int ActualSpeed => total.ActualSpeed;
 
 	public double ActualConsumptionByTime
 	{
@@ -446,6 +446,18 @@ class Tally
 		Distance += distance;
 	}
 
+	public int TotalSpeedReadings
+	{
+		get;
+		private set;
+	}
+
+	public long SumOfSpeedReadings
+	{
+		get;
+		private set;
+	}
+
 	public int ActualSpeed
 	{
 		get; 
@@ -455,6 +467,11 @@ class Tally
 	public void SetActualSpeed(int speed)
 	{
 		ActualSpeed = speed;
+		if (speed != 0)
+		{
+			SumOfSpeedReadings += speed;
+			++TotalSpeedReadings;
+		}
 	}
 }
 
@@ -472,9 +489,9 @@ public class OnBoardComputerDisplay : IOnBoardComputerDisplay // car #3
 	public int TotalRealTime => onBoardComputer.TotalRealTime;
 	public int TotalDrivingTime => onBoardComputer.TotalDrivingTime;
 	public double TotalDrivenDistance => Math.Round(onBoardComputer.TotalDrivenDistance / MetersPerKilometer, 2);
-	public int ActualSpeed { get; }
-	public double TripAverageSpeed { get; }
-	public double TotalAverageSpeed { get; }
+	public int ActualSpeed => onBoardComputer.ActualSpeed;
+	public double TripAverageSpeed => onBoardComputer.TripAverageSpeed;
+	public double TotalAverageSpeed => onBoardComputer.TotalAverageSpeed;
 	public double ActualConsumptionByTime => onBoardComputer.ActualConsumptionByTime;
 	public double ActualConsumptionByDistance => onBoardComputer.ActualConsumptionByDistance;
 	public double TripAverageConsumptionByTime { get; }
