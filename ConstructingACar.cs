@@ -25,7 +25,8 @@ public class Car : ICar
 		fuelTank = new FuelTank(fuelLevel);
 		engine = new Engine(fuelTank);
 		fuelTankDisplay = new FuelTankDisplay(fuelTank);
-		drivingProcessor = new DrivingProcessor(maxAcceleration);
+		var drivingProcessor = new DrivingProcessor(maxAcceleration);
+		this.drivingProcessor = drivingProcessor;
 		onBoardComputer = new OnBoardComputer(drivingProcessor, fuelTank);
 		drivingInformationDisplay = new DrivingInformationDisplay(drivingProcessor);
 		onBoardComputerDisplay = new OnBoardComputerDisplay(onBoardComputer);
@@ -83,7 +84,6 @@ public class Car : ICar
 	{
 		this.engine.Start();
 		this.drivingProcessor.EngineStart();
-		onBoardComputer.ElapseSecond();
 	}
 
 	public void EngineStop()
@@ -237,6 +237,12 @@ public class DrivingInformationDisplay : IDrivingInformationDisplay // car #2
 	public int ActualSpeed => drivingProcessor.ActualSpeed;
 }
 
+public interface IEngineStartStop
+{
+	void EngineStart();
+	void EngineStop();
+}
+
 public class DrivingProcessor : IDrivingProcessor // car #2
 {
 	private const int MaxSpeed = 250; // km/h
@@ -245,6 +251,7 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 
 	private const int MaxBraking = 10; // km/h/sec
 
+	private IEngineStartStop engineStartStop;
 	private readonly int maxAcceleration;
 	private double currentSpeed;
 
@@ -258,13 +265,17 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 		};
 	}
 
+	internal void SetEngineStartStop(IEngineStartStop engineStartStop)
+	{
+		this.engineStartStop = engineStartStop;
+	}
+
 	public double ActualConsumption => FuelConsumptionRate.ConsumptionRateBySpeed(ActualSpeed);
 
 	public int ActualSpeed => Convert.ToInt32(currentSpeed);
 
-	public void EngineStart() {}
-
-	public void EngineStop() {}
+	public void EngineStart() => engineStartStop.EngineStart();
+	public void EngineStop() => engineStartStop.EngineStop();
 
 	public void IncreaseSpeedTo(int speed)
 	{
@@ -298,7 +309,7 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 	}
 }
 
-public class OnBoardComputer : IOnBoardComputer // car #3
+public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 {
 	private const double SecondsPerHour = 3600D;
 	private const double MetersPerKilometer = 1000D;
@@ -309,9 +320,10 @@ public class OnBoardComputer : IOnBoardComputer // car #3
 	private Tally total = new Tally();
 	private Tally trip = new Tally();
 
-	internal OnBoardComputer(IDrivingProcessor drivingProcessor, IFuelTank fuelTank)
+	internal OnBoardComputer(DrivingProcessor drivingProcessor, IFuelTank fuelTank)
 	{
 		this.drivingProcessor = drivingProcessor;
+		drivingProcessor.SetEngineStartStop(this);
 		this.fuelTank = fuelTank;
 	}
 
@@ -408,6 +420,17 @@ public class OnBoardComputer : IOnBoardComputer // car #3
 	public void TotalReset()
 	{
 		total = new Tally();
+	}
+
+	public void EngineStart()
+	{
+		trip.AddSeconds(1);
+		total.AddSeconds(1);
+	}
+
+	public void EngineStop()
+	{
+		// does nothing currently
 	}
 }
 
