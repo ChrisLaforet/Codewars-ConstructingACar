@@ -317,14 +317,16 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 	private readonly IFuelTank fuelTank;
 	private readonly IDrivingProcessor drivingProcessor;
 
-	private Tally total = new Tally();
-	private Tally trip = new Tally();
+	private Tally total;
+	private Tally trip;
 
 	internal OnBoardComputer(DrivingProcessor drivingProcessor, IFuelTank fuelTank)
 	{
 		this.drivingProcessor = drivingProcessor;
 		drivingProcessor.SetEngineStartStop(this);
 		this.fuelTank = fuelTank;
+		this.total = new Tally(fuelTank);
+		this.trip = new Tally(fuelTank);
 	}
 
 	public int TripRealTime => trip.Seconds;
@@ -339,12 +341,7 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 	public double ActualConsumptionByTime
 	{
-		get
-		{
-			var x = FuelConsumptionRate.ConsumptionRateBySpeed(total.ActualSpeed);
-			var y = total.Seconds;
-			return System.Math.Round(FuelConsumptionRate.ConsumptionRateBySpeed(total.ActualSpeed) / total.Seconds, 5);
-		}
+		get => System.Math.Round(total.FuelUsed / total.Seconds, 5);
 	}
 
 	public double ActualConsumptionByDistance
@@ -356,12 +353,19 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 				return double.NaN;
 			}
 
-			return System.Math.Round(FuelConsumptionRate.ConsumptionRateBySpeed(total.ActualSpeed) / 100D, 1);
+			return System.Math.Round(total.FuelUsed / total.Distance, 1);
 		}
 	}
 
-	public double TripAverageConsumptionByTime { get; }
-	public double TotalAverageConsumptionByTime { get; }
+	public double TripAverageConsumptionByTime
+	{
+		get => System.Math.Round(trip.FuelUsed / trip.Seconds, 5);
+	}
+
+	public double TotalAverageConsumptionByTime
+	{
+		get => System.Math.Round(total.FuelUsed / total.Seconds, 5);
+	}
 
 	public double TripAverageConsumptionByDistance
 	{
@@ -369,10 +373,10 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 		{
 			if (trip.Distance == 0)
 			{
-				return 0;
+				return double.NaN;
 			}
 
-			return 0;		// to be fixed
+			return System.Math.Round(trip.FuelUsed / total.Distance, 1);
 		}
 	}
 
@@ -382,10 +386,10 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 		{
 			if (total.Distance == 0)
 			{
-				return 0;
+				return double.NaN;
 			}
 
-			return 0;		// to be fixed
+			return System.Math.Round(total.FuelUsed / total.Distance, 1);
 		}
 	}
 	public int EstimatedRange { get; }
@@ -414,12 +418,12 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 	public void TripReset()
 	{
-		trip = new Tally();
+		trip = new Tally(fuelTank);
 	}
 
 	public void TotalReset()
 	{
-		total = new Tally();
+		total = new Tally(fuelTank);
 	}
 
 	public void EngineStart()
@@ -436,6 +440,16 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 class Tally
 {
+	private readonly IFuelTank fuelTank;
+	private double fuelLitersAtRefill = 0D;
+	private double startFuelLevel;
+	private double lastFuelLevel;
+	
+	public Tally(IFuelTank fuelTank)
+	{
+		this.fuelTank = fuelTank;
+		this.startFuelLevel = this.lastFuelLevel = fuelTank.FillLevel;
+	}
 	public int Seconds
 	{
 		get;
@@ -445,6 +459,15 @@ class Tally
 	public void AddSeconds(int seconds)
 	{
 		Seconds += seconds;
+		if (fuelTank.FillLevel > this.lastFuelLevel)
+		{
+			fuelLitersAtRefill += startFuelLevel - lastFuelLevel;
+			startFuelLevel = lastFuelLevel = fuelTank.FillLevel;
+		}
+		else
+		{
+			lastFuelLevel = fuelTank.FillLevel;
+		}
 	}
 	
 	public int DrivingSeconds
@@ -494,6 +517,14 @@ class Tally
 		{
 			SumOfSpeedReadings += speed;
 			++TotalSpeedReadings;
+		}
+	}
+
+	public double FuelUsed
+	{
+		get
+		{
+			return fuelLitersAtRefill + (startFuelLevel - lastFuelLevel);
 		}
 	}
 }
