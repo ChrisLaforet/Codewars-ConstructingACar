@@ -341,7 +341,7 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 	public double ActualConsumptionByTime
 	{
-		get => System.Math.Round(total.FuelUsed / total.Seconds, 5);
+		get => System.Math.Round(total.FuelUsed / (double)total.Seconds, 5);
 	}
 
 	public double ActualConsumptionByDistance
@@ -353,7 +353,9 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 				return double.NaN;
 			}
 
-			return System.Math.Round(total.FuelUsed / total.Distance, 1);
+			return System.Math.Round(total.Distance / 1000D * total.FuelUsed, 1);
+
+//			return System.Math.Round(total.FuelUsed / total.Distance, 1);
 		}
 	}
 
@@ -428,7 +430,7 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 	public void EngineStart()
 	{
-		trip.AddSeconds(1);
+		trip = new Tally(fuelTank);		// "since" engine start for trip
 		total.AddSeconds(1);
 	}
 
@@ -450,6 +452,7 @@ class Tally
 		this.fuelTank = fuelTank;
 		this.startFuelLevel = this.lastFuelLevel = fuelTank.FillLevel;
 	}
+	
 	public int Seconds
 	{
 		get;
