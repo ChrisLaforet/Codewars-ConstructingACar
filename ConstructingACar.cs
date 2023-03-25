@@ -312,7 +312,7 @@ public class DrivingProcessor : IDrivingProcessor // car #2
 public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 {
 	private const double SecondsPerHour = 3600D;
-	private const double MetersPerKilometer = 1000D;
+	private const double CentimetersPerKilometer = 100000D;
 
 	private readonly IFuelTank fuelTank;
 	private readonly IDrivingProcessor drivingProcessor;
@@ -331,7 +331,7 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 	public int TripRealTime => trip.Seconds;
 	public int TripDrivingTime => trip.DrivingSeconds;
-	public int TripDrivenDistance => trip.Distance;		// meters
+	public int TripDrivenDistance => trip.Distance;		// centimeters
 	public int TotalRealTime => total.Seconds;
 	public int TotalDrivingTime => total.DrivingSeconds;
 	public int TotalDrivenDistance => total.Distance;
@@ -386,6 +386,9 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 	{
 		get
 		{
+			// Average consumption by distance is calculated by taking the average of the values of consumption by distance every second, which is inconsistent to how average speed or other averages are calculated (total distance/total time).
+			
+			//I still don't see what is expected for average consumption by distance. Edit: I found out, but it's hard to explain. For each second, the average of all values is calculated again, with all previous values replaced by the cumulative average thus far.
 			if (total.Distance == 0)
 			{
 				return double.NaN;
@@ -394,8 +397,20 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 			return System.Math.Round(total.FuelUsed / total.Distance, 1);
 		}
 	}
-	public int EstimatedRange { get; }
-	
+
+	public int EstimatedRange
+	{
+		get
+		{
+			double rateOfConsumption = (double)trip.Distance / trip.FuelUsed;		// cm per liter
+			Console.Error.WriteLine("RATE=" + rateOfConsumption);
+			Console.Error.WriteLine("FuelUsed=" + trip.FuelUsed);
+			Console.Error.WriteLine("Distance=" + trip.Distance);
+			Console.Error.WriteLine("Tank=" + fuelTank.FillLevel);
+			return (int)((fuelTank.FillLevel * rateOfConsumption) / CentimetersPerKilometer);
+		}
+	}
+
 	public void ElapseSecond()
 	{
 		trip.AddSeconds(1);
@@ -405,9 +420,9 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 		{
 			double distance = CalculateDistanceFromSpeedAndSeconds(drivingProcessor.ActualSpeed, 1);
 			trip.AddDrivingSeconds(1);
-			trip.AddDistance((int)Math.Round(distance * MetersPerKilometer));
+			trip.AddDistance((int)Math.Round(distance * CentimetersPerKilometer, 6));
 			total.AddDrivingSeconds(1);
-			total.AddDistance((int)Math.Round(distance * MetersPerKilometer));
+			total.AddDistance((int)Math.Round(distance * CentimetersPerKilometer, 6));
 		}
 		trip.SetActualSpeed(drivingProcessor.ActualSpeed);
 		total.SetActualSpeed(drivingProcessor.ActualSpeed);
@@ -415,7 +430,7 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 
 	private static double CalculateDistanceFromSpeedAndSeconds(double speedInKmPerHour, int seconds)
 	{
-		return (speedInKmPerHour / SecondsPerHour) * seconds;  // km/h -> km/sec * sec
+		return (speedInKmPerHour * (double)seconds) / SecondsPerHour;  // km/h -> km/sec * sec
 	}
 
 	public void TripReset()
@@ -432,6 +447,7 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 	{
 		trip = new Tally(fuelTank);		// "since" engine start for trip
 		total.AddSeconds(1);
+		trip.AddSeconds(1);
 	}
 
 	public void EngineStop()
@@ -443,14 +459,13 @@ public class OnBoardComputer : IOnBoardComputer, IEngineStartStop // car #3
 class Tally
 {
 	private readonly IFuelTank fuelTank;
-	private double fuelLitersAtRefill = 0D;
+	
 	private double startFuelLevel;
-	private double lastFuelLevel;
 	
 	public Tally(IFuelTank fuelTank)
 	{
 		this.fuelTank = fuelTank;
-		this.startFuelLevel = this.lastFuelLevel = fuelTank.FillLevel;
+		this.startFuelLevel = fuelTank.FillLevel;
 	}
 	
 	public int Seconds
@@ -462,15 +477,6 @@ class Tally
 	public void AddSeconds(int seconds)
 	{
 		Seconds += seconds;
-		if (fuelTank.FillLevel > this.lastFuelLevel)
-		{
-			fuelLitersAtRefill += startFuelLevel - lastFuelLevel;
-			startFuelLevel = lastFuelLevel = fuelTank.FillLevel;
-		}
-		else
-		{
-			lastFuelLevel = fuelTank.FillLevel;
-		}
 	}
 	
 	public int DrivingSeconds
@@ -527,14 +533,14 @@ class Tally
 	{
 		get
 		{
-			return fuelLitersAtRefill + (startFuelLevel - lastFuelLevel);
+			return startFuelLevel - fuelTank.FillLevel;
 		}
 	}
 }
 
 public class OnBoardComputerDisplay : IOnBoardComputerDisplay // car #3
 {
-	private const double MetersPerKilometer = 1000D;
+	private const double CentimetersPerKilometer = 100000D;
 	
 	private IOnBoardComputer onBoardComputer;
 	
@@ -542,10 +548,10 @@ public class OnBoardComputerDisplay : IOnBoardComputerDisplay // car #3
 
 	public int TripRealTime => onBoardComputer.TripRealTime;
 	public int TripDrivingTime => onBoardComputer.TripDrivingTime;
-	public double TripDrivenDistance => Math.Round(onBoardComputer.TripDrivenDistance / MetersPerKilometer, 2);
+	public double TripDrivenDistance => Math.Round(onBoardComputer.TripDrivenDistance / CentimetersPerKilometer, 2);
 	public int TotalRealTime => onBoardComputer.TotalRealTime;
 	public int TotalDrivingTime => onBoardComputer.TotalDrivingTime;
-	public double TotalDrivenDistance => Math.Round(onBoardComputer.TotalDrivenDistance / MetersPerKilometer, 2);
+	public double TotalDrivenDistance => Math.Round(onBoardComputer.TotalDrivenDistance / CentimetersPerKilometer, 2);
 	public int ActualSpeed => onBoardComputer.ActualSpeed;
 	public double TripAverageSpeed => onBoardComputer.TripAverageSpeed;
 	public double TotalAverageSpeed => onBoardComputer.TotalAverageSpeed;
@@ -555,7 +561,7 @@ public class OnBoardComputerDisplay : IOnBoardComputerDisplay // car #3
 	public double TotalAverageConsumptionByTime { get; }
 	public double TripAverageConsumptionByDistance => onBoardComputer.TripAverageConsumptionByDistance;
 	public double TotalAverageConsumptionByDistance => onBoardComputer.TotalAverageConsumptionByDistance;
-	public int EstimatedRange { get; }
+	public int EstimatedRange => onBoardComputer.EstimatedRange;
 	public void TripReset()
 	{
 		onBoardComputer.TripReset();
